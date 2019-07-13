@@ -35,6 +35,22 @@ var getAccessToken = function(req, res, next) {
 	}
 	
 	console.log('Incoming token: %s', inToken);
+
+	nosql.one().make(function(builder) {
+		builder.where('access_token', inToken);
+		builder.callback(function(err, response) {
+			console.log(response);
+			if (response) {
+				console.log('We found a matching token: %s', inToken);
+			} else {
+				console.log('No matching token was found.');
+			};
+			req.access_token = response;
+			next();
+			return;
+		})
+	})
+	/**
 	nosql.one(function(token) {
 		if (token.access_token == inToken) {
 			return token;	
@@ -49,6 +65,7 @@ var getAccessToken = function(req, res, next) {
 		next();
 		return;
 	});
+	**/
 };
 
 app.options('/resource', cors());
