@@ -22,10 +22,6 @@ var authServer = {
 
 // client information
 
-
-/*
- * Add the client information in here
- */
 var client = {
 	"client_id": "oauth-client-1",
 	"client_secret": "oauth-client-secret-1",
@@ -58,11 +54,16 @@ app.get('/authorize', function(req, res){
 	
 	console.log("redirect", authorizeUrl);
 	res.redirect(authorizeUrl);
-	
 });
 
 app.get('/callback', function(req, res){
-
+	
+	if (req.query.error) {
+		// it's an error response, act accordingly
+		res.render('error', {error: req.query.error});
+		return;
+	}
+	
 	if (req.query.state != state) {
 		console.log('State DOES NOT MATCH: expected %s got %s', state, req.query.state);
 		res.render('error', {error: 'State value did not match'});
@@ -88,20 +89,45 @@ app.get('/callback', function(req, res){
 
 	console.log('Requesting access token for code %s',code);
 	
-	var body = JSON.parse(tokRes.getBody());
-
-	access_token = body.access_token;
-	console.log('Got access token: %s', access_token);
+	if (tokRes.statusCode >= 200 && tokRes.statusCode < 300) {
+		var body = JSON.parse(tokRes.getBody());
 	
-	res.render('index', {access_token: access_token, scope: scope});
-	
+		access_token = body.access_token;
+		console.log('Got access token: %s', access_token);
+		
+		res.render('index', {access_token: access_token, scope: scope});
+	} else {
+		res.render('error', {error: 'Unable to fetch access token, server response: ' + tokRes.statusCode})
+	}
 });
 
 app.get('/fetch_resource', function(req, res) {
+	
+	if (!access_token) {
+		res.render('error', {error: 'Missing Access Token'});
+		return;
+	}
 
-	/*
-	 * Use the access token to call the resource server
-	 */
+	console.log('Making request with access token %s', access_token);
+	
+	var headers = {
+		'Authorization': 'Bearer ' + access_token
+	};
+	
+	var resource = request('POST', protectedResource,
+		{headers: headers}
+	);
+	
+	if (resource.statusCode >= 200 && resource.statusCode < 300) {
+		var body = JSON.parse(resource.getBody());
+		res.render('data', {resource: body});
+		return;
+	} else {
+		access_token = null;
+		res.render('error', {error: resource.statusCode});
+		return;
+	}
+	
 	
 });
 
