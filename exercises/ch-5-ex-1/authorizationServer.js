@@ -28,7 +28,7 @@ var authServer = {
 var clients = [
 	{
 		"client_id": "oauth-client-1",
-		"client_secret": "oauth-clent-secret-1",
+		"client_secret": "oauth-client-secret-1",
 		"redirect_uris": ["http://localhost:9000/callback"],
 	}
 ];
@@ -114,12 +114,43 @@ app.post("/token", function(req, res){
 
 	var client = getClient(clientId);
 	if (!client) {
+		console.log('Unknown client %s', clientId);
 		res.status(401).json({error: 'invalid_client'});
 		return;
 	}
 
 	if (client.client_secret != clientSecret) {
+		console.log('Mismatched client secret, expected %s got %s', client.client_secret, clientSecret);
 		res.status(401).json({error: 'invalid_client'});
+		return;
+	}
+
+	if (req.body.grant_type == 'authorization_code') {
+		var code = codes[req.body.code];
+		if (code) {
+			delete codes[req.body.code];
+			if (code.requet.client_id == clientId) {
+				var access_token = randomstring.generate();
+				nosql.insert({access_token: access_token, client_id: clientId});
+				console.log('Issuing access token %s', access_token);
+				var token_response = {access_token: access_token, token_type: 'Bearer'};
+
+				res.status(200).json(token_response);
+				console.log('Issued tokens for code %s', req.body.code);
+				return;
+			} else {
+				console.log('Client mismatch, expected %s got %s', code.request.client_id, clientId);
+				res.status(400).json({error: 'invalid_grant'});
+				return;
+			}
+		} else {
+			console.log('Unknown code, %s', req.body.code);
+			res.status(400).json({error: 'invalid_grant'});
+			return;
+		}
+	} else {
+		console.log('Unknown grant type %s', req.body.grant_type);
+		res.status(400).json({error: 'unsupported_grant_type'});
 		return;
 	}
 });
