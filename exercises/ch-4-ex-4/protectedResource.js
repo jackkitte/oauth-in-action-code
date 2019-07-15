@@ -39,7 +39,7 @@ var getAccessToken = function(req, res, next) {
 		builder.callback(function(err, response) {
 			console.log(response);
 			if (response) {
-				console.log("We found a matching token: %s", inToken);
+				console.log("We found a matching token: %s", response.access_token);
 			} else {
 				console.log('No matching token was found.');
 			};
