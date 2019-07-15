@@ -51,7 +51,7 @@ app.get("/authorize", function(req, res){
 		res.render('error', {error: 'Unknown client'});
 		return;
 	} else if (!__.contains(client.redirect_uris, req.query.redirect_uri)) {
-		res.render('error': {error: 'Invalid redirect URI'});
+		res.render('error', {error: 'Invalid redirect URI'});
 		return;
 	}
 	var reqid = randomstring.generate(8);
@@ -60,11 +60,38 @@ app.get("/authorize", function(req, res){
 });
 
 app.post('/approve', function(req, res) {
+	var reqid = req.body.reqid;
+	var query = requests[reqid];
+	delete requests[reqid];
 
-	/*
-	 * Process the results of the approval page, authorize the client
-	 */
-	
+	if (!query) {
+		res.render('error', {error: 'No matching authorization request'});
+	}
+
+	if (req.body.approve) {
+		if (query.response_type == 'code') {
+			var code = randomstring.generate(8);
+			codes[code] = {requet: query};
+			var urlParsed = buildUrl(query.redirect_uri, {
+				code: code,
+				state: query.state
+			});
+			res.redirect(urlParsed);
+			return;
+		} else {
+			var urlParsed = buildUrl(query.redirect_uri, {
+				error: 'unsupported_response_type'
+			});
+			res.redirect(urlParsed);
+			return;
+		}
+	} else {
+		var urlParsed = buildUrl(query.redirect_uri, {
+			error: 'access_denied'
+		});
+		res.redirect(urlParsed);
+		return;
+	}
 });
 
 app.post("/token", function(req, res){
