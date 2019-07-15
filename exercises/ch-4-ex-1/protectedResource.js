@@ -50,6 +50,14 @@ var getAccessToken = function(req, res, next) {
 	})
 };
 
+var requireAccessToken = function(req, res, next) {
+	if (req.access_token) {
+		next();
+	} else {
+		res.status(401).end();
+	}
+};
+
 app.options('/resource', cors());
 
 
