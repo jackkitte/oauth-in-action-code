@@ -72,10 +72,19 @@ var bobFavorites = {
 
 app.get('/favorites', getAccessToken, requireAccessToken, function(req, res) {
 	
-	if (req.access_token.user == 'alice') {
-		res.json({user: 'Alice', favorites: aliceFavorites});
-	} else if (req.access_token.user == 'bob') {
-		res.json({user: 'Bob', favorites: bobFavorites});
+	var user = req.access_token.user;
+	var scope_list = req.access_token.scope;
+	var resFavorites = {};
+	if (user == 'alice') {
+		scope_list.forEach(function(scope) {
+			resFavorites[scope] = aliceFavorites[scope];
+		});
+		res.json({user: 'Alice', favorites: resFavorites});
+	} else if (user == 'bob') {
+		scope_list.forEach(function(scope) {
+			resFavorites[scope] = bobFavorites[scope];
+		});
+		res.json({user: 'Bob', favorites: resFavorites});
 	} else {
 		var unknown = {user: 'Unknown', favorites: {movies: [], foods: [], music: []}};
 		res.json(unknown);
