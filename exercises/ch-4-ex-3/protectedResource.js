@@ -34,19 +34,19 @@ var getAccessToken = function(req, res, next) {
 	}
 	
 	console.log('Incoming token: %s', inToken);
-	nosql.one(function(token) {
-		if (token.access_token == inToken) {
-			return token;	
-		}
-	}, function(err, token) {
-		if (token) {
-			console.log("We found a matching token: %s", inToken);
-		} else {
-			console.log('No matching token was found.');
-		}
-		req.access_token = token;
-		next();
-		return;
+	nosql.one().make(function(builder) {
+		builder.where('access_token', inToken);
+		builder.callback(function(err, response) {
+			console.log(response);
+			if (response) {
+				console.log("We found a matching token: %s", inToken);
+			} else {
+				console.log('No matching token was found.');
+			};
+			req.access_token = response;
+			next();
+			return;
+		});
 	});
 };
 
@@ -59,13 +59,16 @@ var requireAccessToken = function(req, res, next) {
 };
 
 app.get('/produce', getAccessToken, requireAccessToken, function(req, res) {
-	var produce = {fruit: ['apple', 'banana', 'kiwi'], 
-		veggies: ['lettuce', 'onion', 'potato'], 
-		meats: ['bacon', 'steak', 'chicken breast']};	
-
-	/*
-	 * Add different kinds of produce based on the incoming token's scope
-	 */
+	var produce = {fruit: [], veggies: [], meats: []};
+	if (__.contains(req.access_token.scope, 'fruit')) {
+		produce.fruit = ['apple', 'banana', 'kiwi'];
+	}
+	if (__.contains(req.access_token.scope, 'veggies')) {
+		produce.veggies = ['lettuce', 'onion', 'potato'];
+	}
+	if (__.contains(req.access_token.scope, 'meats')) {
+		produce.meats = ['bacon', 'steak', 'chicken breast'];
+	}
 
 	res.json(produce);
 });
