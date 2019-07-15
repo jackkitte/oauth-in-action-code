@@ -160,16 +160,14 @@ app.post("/token", function(req, res){
 			if (code.request.client_id == clientId) {
 
 				var access_token = randomstring.generate();
+				var refresh_token = randomstring.generate();
 				nosql.insert({ access_token: access_token, client_id: clientId });
-
-				/*
-				 * Issue a refresh token along side the access token and save it to the database
-				 */
+				nosql.insert({ refresh_token: refresh_token, client_id: clientId });
 
 				console.log('Issuing access token %s', access_token);
 				console.log('with scope %s', code.scope);
 
-				var token_response = { access_token: access_token, token_type: 'Bearer' };
+				var token_response = { access_token: access_token, token_type: 'Bearer', refresh_token: refresh_token };
 
 				res.status(200).json(token_response);
 				console.log('Issued tokens for code %s', req.body.code);
@@ -187,10 +185,32 @@ app.post("/token", function(req, res){
 			return;
 		}
 
-	/*
-     * Respond to a refresh token request by issuing a new access token
-	 */
-		
+	} else if (req.body.grant_type == 'refresh_token') {
+		nosql.one().make(function(builder) {
+			builder.where('refresh_token', req.body.refresh_token);
+			builder.callback(function(err, response) {
+				if (response) {
+					console.log("We found a matching refresh token: %s", response.refresh_token);
+					if (response.client_id != clientId) {
+						console.log('Invalid client using a refresh token, expected %s got %s', response.client_id, clientId);
+						nosql.remove(function(found) {return (found == response);}, function() {});
+						res.status(400).json({error: 'invalid_grant'});
+						return;
+					}
+					var access_token = randomstring.generate();
+					var refresh_token = randomstring.generate();
+					nosql.insert({access_token: access_token, client_id: clientId});
+					nosql.insert({refresh_token: refresh_token, client_id: clientId});
+					var token_response = {access_token: access_token, token_type: 'Bearer', refresh_token: refresh_token};
+					res.status(200).json(token_response);
+					return;
+				} else {
+					console.log('No matching token was found.');
+					res.status(400).json({error: 'invalid_grant'});
+					return;
+				}
+			});
+		});
 	} else {
 		console.log('Unknown grant type %s', req.body.grant_type);
 		res.status(400).json({error: 'unsupported_grant_type'});
